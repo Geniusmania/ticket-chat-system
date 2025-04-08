@@ -1,19 +1,49 @@
-
-import React from "react";
+import React, { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { mockTickets, mockUsers } from "@/data/mockData";
-import { TicketStatus } from "@/types";
+import { BarChart, PieChart } from "@/components/ui/chart";
+import { useNavigate } from "react-router-dom";
 import {
+  Search,
+  Users,
+  AlertTriangle,
   CheckCircle,
   Clock,
-  AlertCircle,
-  Users,
-  TicketIcon,
+  Archive,
+  BarChart3,
+  PieChart as PieChartIcon,
+  Circle,
 } from "lucide-react";
+
+const AdminTicketIcon = (props) => (
+  <svg
+    {...props}
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" />
+    <path d="M13 5v2" />
+    <path d="M13 17v2" />
+    <path d="M13 11v2" />
+  </svg>
+);
 
 const AdminDashboard = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   // Calculate stats
   const openTickets = mockTickets.filter((t) => t.status === "open").length;
@@ -45,7 +75,7 @@ const AdminDashboard = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-sm font-medium">Total Tickets</CardTitle>
-            <TicketIcon className="h-4 w-4 text-muted-foreground" />
+            <AdminTicketIcon className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{mockTickets.length}</div>
@@ -54,7 +84,7 @@ const AdminDashboard = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-sm font-medium">Open</CardTitle>
-            <AlertCircle className="h-4 w-4 text-status-open" />
+            <AlertTriangle className="h-4 w-4 text-status-open" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{openTickets}</div>
@@ -205,26 +235,5 @@ const AdminDashboard = () => {
     </div>
   );
 };
-
-// SVG Icon for Tickets
-const TicketIcon = (props) => (
-  <svg
-    {...props}
-    xmlns="http://www.w3.org/2000/svg"
-    width="24"
-    height="24"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" />
-    <path d="M13 5v2" />
-    <path d="M13 17v2" />
-    <path d="M13 11v2" />
-  </svg>
-);
 
 export default AdminDashboard;
