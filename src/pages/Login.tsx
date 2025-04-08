@@ -6,18 +6,24 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Loader2 } from "lucide-react";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
   const { login, isLoading } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoginError("");
+    
     const success = await login(email, password);
     if (success) {
       navigate("/dashboard");
+    } else {
+      setLoginError("Invalid email or password");
     }
   };
 
@@ -62,10 +68,21 @@ const Login = () => {
                   required
                 />
               </div>
+              
+              {loginError && (
+                <div className="p-3 rounded-md bg-destructive/10 text-destructive text-sm">
+                  {loginError}
+                </div>
+              )}
             </CardContent>
             <CardFooter className="flex flex-col space-y-4">
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Signing in..." : "Sign In"}
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Signing in...
+                  </>
+                ) : "Sign In"}
               </Button>
               <div className="text-center text-sm">
                 Don't have an account?{" "}
@@ -78,9 +95,9 @@ const Login = () => {
         </Card>
         
         <div className="mt-8 text-center text-sm text-muted-foreground">
-          <p>Demo credentials:</p>
-          <p>User: john@example.com / password</p>
-          <p>Admin: admin@tgtsafrica.com / password</p>
+          <p>Default admin login:</p>
+          <p>Email: admin@tgtsafrica.com</p>
+          <p>Password: password</p>
         </div>
       </div>
     </div>
