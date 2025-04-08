@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,7 +62,31 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
-				}
+				},
+        // TGTS Africa custom colors
+        tgts: {
+          terracotta: "#D35400",
+          ochre: "#F39C12",
+          green: "#27AE60",
+          navy: "#2C3E50",
+          sand: "#F9E7C4",
+          "light-gray": "#F4F6F9",
+          "dark-gray": "#5D6D7E",
+        },
+        // Ticket status colors
+        status: {
+          open: "#3498DB",
+          "in-progress": "#F39C12",
+          resolved: "#27AE60",
+          closed: "#95A5A6",
+        },
+        // Priority colors
+        priority: {
+          low: "#3498DB",
+          medium: "#F39C12",
+          high: "#E74C3C",
+          critical: "#8E44AD",
+        }
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
