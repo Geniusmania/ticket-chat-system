@@ -1,4 +1,3 @@
-
 export type UserRole = "user" | "admin";
 
 export interface User {
@@ -10,9 +9,9 @@ export interface User {
   isVerified: boolean;
 }
 
-export type TicketStatus = "open" | "in-progress" | "resolved" | "closed";
-export type TicketPriority = "low" | "medium" | "high" | "critical";
-export type TicketCategory = "technical" | "billing" | "general";
+export type TicketStatus = 'open' | 'in-progress' | 'resolved' | 'closed';
+export type TicketPriority = 'low' | 'medium' | 'high' | 'critical';
+export type TicketCategory = 'technical' | 'billing' | 'general';
 
 export interface Ticket {
   id: string;
@@ -46,14 +45,14 @@ export interface Attachment {
   uploadedById: string;
 }
 
-export interface KnowledgeBaseArticle {
+export interface KnowledgeBase {
   id: string;
   title: string;
   content: string;
   category: string;
   createdAt: string;
   updatedAt: string;
-  authorId: string;
+  authorId?: string;
 }
 
 export interface AuditLog {
@@ -61,7 +60,7 @@ export interface AuditLog {
   action: string;
   entityType: string;
   entityId: string;
-  userId: string;
+  userId?: string;
   timestamp: string;
-  details?: string;
+  details?: Record<string, any>;
 }

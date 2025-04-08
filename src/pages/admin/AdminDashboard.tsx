@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+
+import React from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -20,6 +21,7 @@ import {
   PieChart as PieChartIcon,
   Circle,
 } from "lucide-react";
+import { TicketStatus } from "@/types"; 
 
 const AdminTicketIcon = (props) => (
   <svg
