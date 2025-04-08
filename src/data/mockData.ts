@@ -1,5 +1,5 @@
 
-import { AuditLog, KnowledgeBaseArticle, Message, Ticket, User } from "../types";
+import { AuditLog, KnowledgeBase, Message, Ticket, User } from "../types";
 
 export const mockUsers: User[] = [
   {
@@ -113,7 +113,7 @@ export const mockMessages: Message[] = [
   },
 ];
 
-export const mockKnowledgeBase: KnowledgeBaseArticle[] = [
+export const mockKnowledgeBase: KnowledgeBase[] = [
   {
     id: "kb-1",
     title: "How to Reset Your Password",
@@ -142,6 +142,7 @@ export const mockAuditLogs: AuditLog[] = [
     entityId: "user-1",
     userId: "user-1",
     timestamp: "2023-09-03T14:20:00Z",
+    details: { browser: "Chrome", ip: "192.168.1.1" }
   },
   {
     id: "log-2",
@@ -150,6 +151,7 @@ export const mockAuditLogs: AuditLog[] = [
     entityId: "ticket-1",
     userId: "user-1",
     timestamp: "2023-09-03T14:22:00Z",
+    details: { ticketTitle: "Cannot access my account" }
   },
   {
     id: "log-3",
@@ -158,6 +160,6 @@ export const mockAuditLogs: AuditLog[] = [
     entityId: "ticket-2",
     userId: "admin-1",
     timestamp: "2023-09-04T15:33:00Z",
-    details: "Status changed from 'open' to 'in-progress'",
+    details: { from: "open", to: "in-progress" }
   },
 ];

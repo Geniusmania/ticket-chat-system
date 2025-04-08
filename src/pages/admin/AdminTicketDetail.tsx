@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
@@ -31,7 +30,6 @@ const AdminTicketDetail = () => {
   const [ticket, setTicket] = useState(() => mockTickets.find((t) => t.id === ticketId));
   const [isSending, setIsSending] = useState(false);
 
-  // If ticket not found, show error
   if (!ticket) {
     return (
       <div className="flex flex-col items-center justify-center h-full py-12">
@@ -47,29 +45,23 @@ const AdminTicketDetail = () => {
     );
   }
 
-  // Get ticket messages
   const messages = mockMessages.filter((m) => m.ticketId === ticket.id);
   
-  // Get assigned admin user if any
   const assignedAdmin = ticket.assignedToId 
     ? mockUsers.find((u) => u.id === ticket.assignedToId) 
     : null;
 
   const handleStatusChange = (status) => {
-    // Update ticket status (in a real app, this would call an API)
     setTicket((prev) => ({ ...prev, status }));
   };
   
   const handleAssignToChange = (userId) => {
-    // Update assigned admin (in a real app, this would call an API)
     setTicket((prev) => ({ ...prev, assignedToId: userId }));
   };
 
-  // Send a new message
   const handleSendMessage = (content) => {
     setIsSending(true);
     setTimeout(() => {
-      // Mock adding a new message (in a real app, this would call an API)
       const newMessage = {
         id: `message-${Date.now()}`,
         ticketId: ticket.id,
@@ -81,7 +73,6 @@ const AdminTicketDetail = () => {
       
       mockMessages.push(newMessage);
       
-      // Update if this would change ticket status
       if (ticket.status === "open") {
         handleStatusChange("in-progress");
       }
@@ -90,7 +81,6 @@ const AdminTicketDetail = () => {
     }, 500);
   };
 
-  // Helper functions to format data
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleString();
   };
@@ -107,7 +97,6 @@ const AdminTicketDetail = () => {
       .toUpperCase();
   };
 
-  // AdminPanel component for the sidebar
   const AdminPanel = () => (
     <Card>
       <CardHeader>
@@ -191,9 +180,12 @@ const AdminTicketDetail = () => {
       <TicketHeader ticket={ticket} />
       
       <div className="grid gap-6 md:grid-cols-3">
-        {/* Left column - ticket information */}
         <div className="md:col-span-2 space-y-6">
-          <TicketInfo ticket={ticket} />
+          <TicketInfo 
+            ticket={ticket} 
+            ticketUser={getUser(ticket.userId)} 
+            formatDate={formatDate} 
+          />
           
           <Tabs defaultValue="conversation" className="w-full">
             <TabsList className="mb-4">
@@ -268,7 +260,6 @@ const AdminTicketDetail = () => {
           </Tabs>
         </div>
         
-        {/* Right column - admin panel */}
         <div>
           <AdminPanel />
         </div>

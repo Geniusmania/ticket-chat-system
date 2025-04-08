@@ -1,3 +1,4 @@
+
 export type UserRole = "user" | "admin";
 
 export interface User {
@@ -7,6 +8,7 @@ export interface User {
   role: UserRole;
   createdAt: string;
   isVerified: boolean;
+  isActive?: boolean; // Added isActive property
 }
 
 export type TicketStatus = 'open' | 'in-progress' | 'resolved' | 'closed';
