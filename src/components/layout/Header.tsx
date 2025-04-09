@@ -19,10 +19,16 @@ const Header = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
+  const handleLogout = async () => {
+    try {
+      await logout(); // Await logout to ensure it completes
+      navigate("/login");
+    } catch (error) {
+      console.error("Logout failed:", error);
+      // Optionally, you could show an error toast or alert here
+    }
   };
+  
 
   const getInitials = (name: string) => {
     return name

@@ -72,7 +72,7 @@ const Sidebar = ({ collapsed, toggleCollapse }: SidebarProps) => {
                 <Home className="h-5 w-5" />
                 {!collapsed && <span className="ml-3">Dashboard</span>}
               </NavLink>
-              <NavLink
+              {/* <NavLink
                 to="/tickets"
                 className={({ isActive }) =>
                   cn(
@@ -86,7 +86,7 @@ const Sidebar = ({ collapsed, toggleCollapse }: SidebarProps) => {
               >
                 <TicketIcon className="h-5 w-5" />
                 {!collapsed && <span className="ml-3">My Tickets</span>}
-              </NavLink>
+              </NavLink> */}
               <NavLink
                 to="/new-ticket"
                 className={({ isActive }) =>
