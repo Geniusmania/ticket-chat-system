@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -35,8 +36,8 @@ const Login = () => {
       // The navigation will happen via the useEffect when user state updates
       await login(email, password);
       // No navigation here - it will happen automatically in the useEffect
-    } catch (error) {
-      console.error("Login error:", error);
+    } catch (err) {
+      console.error("Login error:", err);
       setLoginError("Invalid email or password");
     }
   };

@@ -1,6 +1,6 @@
 
 import React from "react";
-import { FileText } from "lucide-react";
+import { FileText, Loader2 } from "lucide-react";
 import { Message, User } from "@/types";
 import MessageItem from "./MessageItem";
 
@@ -10,6 +10,7 @@ interface MessageListProps {
   getUser: (userId: string) => User | undefined;
   formatDate: (date: string) => string;
   getInitials: (name: string) => string;
+  typing?: {userId: string, name: string} | null;
 }
 
 const MessageList: React.FC<MessageListProps> = ({
@@ -17,7 +18,8 @@ const MessageList: React.FC<MessageListProps> = ({
   currentUserId,
   getUser,
   formatDate,
-  getInitials
+  getInitials,
+  typing
 }) => {
   if (messages.length === 0) {
     return (
@@ -50,6 +52,17 @@ const MessageList: React.FC<MessageListProps> = ({
           />
         );
       })}
+      
+      {typing && (
+        <div className="flex items-center space-x-2 ml-2">
+          <div className="flex items-center space-x-1">
+            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+          </div>
+          <p className="text-xs text-muted-foreground">{typing.name} is typing...</p>
+        </div>
+      )}
     </div>
   );
 };

@@ -26,12 +26,14 @@ const TicketDetail = () => {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  const [adminUsers, setAdminUsers] = useState<User[]>([]);
 
   useEffect(() => {
     const fetchTicketData = async () => {
       if (!ticketId) return;
       
       try {
+        setIsLoading(true);
         // Fetch ticket details
         const { data: ticketData, error: ticketError } = await supabase
           .from("tickets")
@@ -128,6 +130,25 @@ const TicketDetail = () => {
             }));
             setAttachments(formattedAttachments);
           }
+          
+          // Fetch admin users for displaying proper names
+          const { data: adminsData } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("role", "admin");
+            
+          if (adminsData) {
+            const formattedAdmins: User[] = adminsData.map(admin => ({
+              id: admin.id,
+              name: admin.name,
+              email: admin.email,
+              role: admin.role,
+              createdAt: admin.created_at,
+              isVerified: admin.is_verified || false,
+              isActive: true,
+            }));
+            setAdminUsers(formattedAdmins);
+          }
         }
       } catch (error) {
         console.error("Error fetching ticket data:", error);
@@ -167,49 +188,108 @@ const TicketDetail = () => {
             isAdminMessage: newMessage.is_admin_message || false,
           };
           
-          // Get user details if not available
-          let messageUser = null;
-          if (newMessage.is_admin_message) {
-            // For admin messages, fetch the admin user if not the current user
-            if (user?.id !== newMessage.user_id) {
-              const { data } = await supabase
-                .from("profiles")
-                .select("*")
-                .eq("id", newMessage.user_id)
-                .single();
-                
-              if (data) {
-                messageUser = {
-                  id: data.id,
-                  name: data.name,
-                  role: data.role,
-                  email: data.email,
-                  createdAt: data.created_at,
-                  isVerified: data.is_verified || false,
-                };
-              }
-            }
+          // Add the new message to our state
+          setMessages(prev => [...prev, formattedMessage]);
+          
+          // Play notification sound if message is from someone else
+          if (user && newMessage.user_id !== user.id) {
+            const audio = new Audio('/notification.mp3');
+            audio.play().catch(e => console.log('Audio play failed:', e));
           }
           
-          setMessages(prev => [...prev, formattedMessage]);
+          // If this message has attachments, also fetch the updated attachments
+          const { data: attachmentsData } = await supabase
+            .from("attachments")
+            .select("*")
+            .eq("message_id", newMessage.id);
+            
+          if (attachmentsData && attachmentsData.length > 0) {
+            const newAttachments: Attachment[] = attachmentsData.map(att => ({
+              id: att.id,
+              filename: att.filename,
+              path: att.path,
+              ticketId: att.ticket_id,
+              messageId: att.message_id,
+              uploadedAt: att.uploaded_at,
+              uploadedById: att.uploaded_by_id,
+            }));
+            
+            setAttachments(prev => [...prev, ...newAttachments]);
+          }
+        }
+      )
+      .subscribe();
+      
+    // Also listen for ticket updates (status changes, etc.)
+    const ticketChannel = supabase
+      .channel('ticket-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'tickets',
+          filter: `id=eq.${ticketId}`
+        },
+        (payload) => {
+          const updatedTicket = payload.new;
+          
+          // Update ticket state with the new values
+          if (ticket) {
+            setTicket({
+              ...ticket,
+              status: updatedTicket.status,
+              priority: updatedTicket.priority,
+              updatedAt: updatedTicket.updated_at,
+              assignedToId: updatedTicket.assigned_to_id,
+            });
+            
+            // Show toast notification for ticket updates
+            if (updatedTicket.status !== ticket.status) {
+              toast({
+                title: "Ticket Updated",
+                description: `Status changed to ${updatedTicket.status}`,
+              });
+            }
+          }
         }
       )
       .subscribe();
       
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(ticketChannel);
     };
-  }, [ticketId, user]);
+  }, [ticketId, user, ticket]);
 
   const getUser = (userId: string) => {
+    if (user && userId === user.id) {
+      return {
+        id: user.id,
+        name: user.name || user.email,
+        email: user.email || "",
+        role: user.role,
+        createdAt: new Date().toISOString(),
+        isVerified: true,
+        isActive: true,
+      };
+    }
+    
+    // For admin users
+    const adminUser = adminUsers.find(u => u.id === userId);
+    if (adminUser) {
+      return adminUser;
+    }
+    
+    // For ticket owner
     if (ticketUser && userId === ticketUser.id) {
       return ticketUser;
     }
     
-    // For admin users, we might need to fetch them
-    const adminUser = mockUsers.find(u => u.id === userId && u.role === "admin");
-    if (adminUser) {
-      return adminUser;
+    // Fall back to mock data
+    const mockUser = mockUsers.find(u => u.id === userId);
+    if (mockUser) {
+      return mockUser;
     }
     
     // If all else fails, return a default user
@@ -296,26 +376,11 @@ const TicketDetail = () => {
         }
       }
       
-      // Update ticket status if needed
-      if (ticket.status === "open" && user.role === "admin") {
-        const { error: updateError } = await supabase
-          .from("tickets")
-          .update({ status: "in-progress", updated_at: new Date().toISOString() })
-          .eq("id", ticketId);
-          
-        if (updateError) {
-          console.error("Error updating ticket status:", updateError);
-        } else {
-          // Update local state
-          setTicket({
-            ...ticket,
-            status: "in-progress",
-            updatedAt: new Date().toISOString(),
-          });
-        }
-      }
-      
-      // Message will be added via the real-time subscription
+      // The message will be added via the real-time subscription
+      toast({
+        title: "Message sent",
+        description: "Your message has been sent successfully",
+      });
     } catch (error) {
       console.error("Failed to send message:", error);
       toast({

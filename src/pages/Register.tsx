@@ -34,8 +34,8 @@ const Register = () => {
         description: "You can now sign in with your credentials",
       });
       navigate("/login", { state: { registered: true } });
-    } catch (error) {
-      console.error("Registration failed:", error);
+    } catch (err) {
+      console.error("Registration failed:", err);
       setPasswordError("Registration failed. Please try again.");
     }
   };

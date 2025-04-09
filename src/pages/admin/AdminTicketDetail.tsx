@@ -20,28 +20,28 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { mockTickets, mockUsers } from "@/data/mockData";
-import { ArrowLeft, Clock, FileText, User, Loader2, AlertCircle } from "lucide-react";
+import { ArrowLeft, Clock, FileText, User as UserIcon, Loader2, AlertCircle } from "lucide-react";
 import TicketHeader from "@/components/tickets/TicketHeader";
 import TicketInfo from "@/components/tickets/TicketInfo";
 import ConversationCard from "@/components/tickets/ConversationCard";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { Ticket, Message, User as UserType, Attachment } from "@/types";
+import { Ticket, Message, User, Attachment } from "@/types";
 
 const AdminTicketDetail = () => {
   const { ticketId } = useParams<{ ticketId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
   const [ticket, setTicket] = useState<Ticket | null>(null);
-  const [ticketUser, setTicketUser] = useState<UserType | null>(null);
+  const [ticketUser, setTicketUser] = useState<User | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [isSavingStatus, setIsSavingStatus] = useState(false);
   const [isAssigning, setIsAssigning] = useState(false);
-  const [admins, setAdmins] = useState<UserType[]>([]);
+  const [admins, setAdmins] = useState<User[]>([]);
 
   // Fetch ticket data, user data, and related messages
   useEffect(() => {
@@ -80,14 +80,15 @@ const AdminTicketDetail = () => {
             if (mockTicketUser) setTicketUser(mockTicketUser);
             
             const mockTicketMessages = mockUsers
-              .filter(m => m.ticketId === ticketId)
-              .map(m => ({
-                id: m.id,
-                content: m.content || "",
-                createdAt: m.createdAt || new Date().toISOString(),
-                ticketId: m.ticketId || ticketId,
-                userId: m.userId || user.id,
-                isAdminMessage: m.isAdminMessage || false,
+              .filter(u => u.id && u.role === "user")
+              .slice(0, 3)
+              .map(u => ({
+                id: `mock-${Math.random().toString(36).substring(2, 9)}`,
+                content: "This is a mock message for testing purposes",
+                createdAt: new Date().toISOString(),
+                ticketId: ticketId,
+                userId: u.id,
+                isAdminMessage: false,
               }));
               
             setMessages(mockTicketMessages);
@@ -176,7 +177,7 @@ const AdminTicketDetail = () => {
           .eq("role", "admin");
           
         if (adminUsersData) {
-          const formattedAdmins: UserType[] = adminUsersData.map(admin => ({
+          const formattedAdmins: User[] = adminUsersData.map(admin => ({
             id: admin.id,
             name: admin.name,
             email: admin.email,
@@ -243,7 +244,7 @@ const AdminTicketDetail = () => {
       const { error } = await supabase
         .from("tickets")
         .update({ 
-          status,
+          status: status as "open" | "in-progress" | "resolved" | "closed",
           updated_at: new Date().toISOString()
         })
         .eq("id", ticket.id);
@@ -253,7 +254,7 @@ const AdminTicketDetail = () => {
       // Update local state
       setTicket({
         ...ticket,
-        status: status as any,
+        status: status as "open" | "in-progress" | "resolved" | "closed",
         updatedAt: new Date().toISOString()
       });
       
@@ -396,6 +397,11 @@ const AdminTicketDetail = () => {
         entity_id: ticket.id,
         entity_type: "ticket",
         details: { message_id: msgData.id }
+      });
+      
+      toast({
+        title: "Message sent",
+        description: "Your response has been sent to the user",
       });
       
       // The message will be added via the real-time subscription
@@ -549,7 +555,7 @@ const AdminTicketDetail = () => {
           <h4 className="text-sm font-medium">User Information</h4>
           <div className="rounded-md bg-muted p-3">
             <div className="flex items-center gap-2 mb-2">
-              <User className="h-4 w-4 text-muted-foreground" />
+              <UserIcon className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm">{ticketUser?.name || "Unknown User"}</span>
             </div>
             <div className="flex items-center gap-2 mb-2">

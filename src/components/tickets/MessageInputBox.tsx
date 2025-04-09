@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Paperclip, Send, X, FileText, Loader2 } from "lucide-react";
@@ -8,17 +8,20 @@ interface MessageInputBoxProps {
   onSend: (message: string, attachments?: File[]) => void;
   disabled?: boolean;
   placeholder?: string;
+  onTyping?: () => void;
 }
 
 const MessageInputBox: React.FC<MessageInputBoxProps> = ({
   onSend,
   disabled = false,
-  placeholder = "Type your message here..."
+  placeholder = "Type your message here...",
+  onTyping
 }) => {
   const [message, setMessage] = useState("");
   const [attachments, setAttachments] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,6 +39,29 @@ const MessageInputBox: React.FC<MessageInputBoxProps> = ({
       handleSubmit(e);
     }
   };
+  
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setMessage(e.target.value);
+    
+    // Send typing notification with debounce
+    if (onTyping) {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      
+      typingTimeoutRef.current = setTimeout(() => {
+        onTyping();
+      }, 300);
+    }
+  };
+  
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -88,7 +114,7 @@ const MessageInputBox: React.FC<MessageInputBoxProps> = ({
         <Textarea
           placeholder={placeholder}
           value={message}
-          onChange={(e) => setMessage(e.target.value)}
+          onChange={handleChange}
           onKeyDown={handleKeyDown}
           disabled={disabled}
           className="flex-1 min-h-[80px] resize-none"

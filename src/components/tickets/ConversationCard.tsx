@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { 
   Card, 
   CardContent, 
@@ -12,6 +12,7 @@ import MessageList from "./MessageList";
 import MessageInputBox from "./MessageInputBox";
 import AttachmentsList from "./AttachmentsList";
 import { Message, User, Attachment } from "@/types";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ConversationCardProps {
   messages: Message[];
@@ -34,6 +35,69 @@ const ConversationCard: React.FC<ConversationCardProps> = ({
   isSending,
   attachments = []
 }) => {
+  const [typing, setTyping] = useState<{userId: string, name: string} | null>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Scroll to bottom on new messages
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]);
+
+  useEffect(() => {
+    // Set up typing indicator channel
+    if (!currentUserId) return;
+    
+    const channel = supabase.channel(`typing-${messages[0]?.ticketId || 'general'}`)
+      .on('broadcast', { event: 'typing' }, (payload) => {
+        // If someone else is typing
+        if (payload.payload.userId !== currentUserId) {
+          setTyping({
+            userId: payload.payload.userId,
+            name: payload.payload.name
+          });
+          
+          // Clear typing indicator after 3 seconds
+          if (typingTimeoutRef.current) {
+            clearTimeout(typingTimeoutRef.current);
+          }
+          
+          typingTimeoutRef.current = setTimeout(() => {
+            setTyping(null);
+          }, 3000);
+        }
+      })
+      .subscribe();
+      
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      supabase.removeChannel(channel);
+    };
+  }, [currentUserId, messages]);
+
+  const handleTyping = () => {
+    // Don't send typing notifications if we don't have a current user or ticket
+    if (!currentUserId || !messages[0]?.ticketId) return;
+    
+    const user = getUser(currentUserId);
+    if (!user) return;
+    
+    const channel = supabase.channel(`typing-${messages[0].ticketId}`);
+    
+    channel.send({
+      type: 'broadcast',
+      event: 'typing',
+      payload: {
+        userId: currentUserId,
+        name: user.name
+      }
+    });
+  };
+
   return (
     <Card className="h-full flex flex-col">
       <CardHeader>
@@ -59,11 +123,15 @@ const ConversationCard: React.FC<ConversationCardProps> = ({
               getUser={getUser}
               formatDate={formatDate}
               getInitials={getInitials}
+              typing={typing}
             />
+            
+            <div ref={messagesEndRef} />
             
             <MessageInputBox 
               onSend={onSendMessage}
               disabled={isSending}
+              onTyping={handleTyping}
             />
           </TabsContent>
           
