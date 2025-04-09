@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,7 +20,10 @@ const Dashboard = () => {
 
   useEffect(() => {
     const fetchUserTickets = async () => {
-      if (!user) return;
+      if (!user) {
+        setIsLoading(false);
+        return;
+      }
       
       try {
         const { data, error } = await supabase
@@ -32,10 +34,16 @@ const Dashboard = () => {
           
         if (error) {
           console.error("Error fetching tickets:", error);
+          setIsLoading(false);
           return;
         }
         
-        setTickets(data || []);
+        setTickets((data || []).map(ticket => ({
+          ...ticket,
+          createdAt: ticket.created_at,
+          updatedAt: ticket.updated_at,
+          userId: ticket.user_id
+        })));
       } catch (error) {
         console.error("Error in fetchUserTickets:", error);
       } finally {
@@ -47,32 +55,34 @@ const Dashboard = () => {
   }, [user]);
 
   // Use mockTickets if no data from Supabase
-  const displayTickets = tickets.length > 0 ? tickets : mockTickets.filter(ticket => ticket.userId === user?.id);
+  const displayTickets = tickets.length > 0 ? tickets : (user ? mockTickets.filter(ticket => ticket.userId === user.id) : []);
 
   const getStatusCounts = () => {
     const counts = { open: 0, "in-progress": 0, resolved: 0, closed: 0 };
     displayTickets.forEach(ticket => {
-      counts[ticket.status] = (counts[ticket.status] || 0) + 1;
+      if (ticket.status in counts) {
+        counts[ticket.status] += 1;
+      }
     });
     return counts;
   };
 
   const statusCounts = getStatusCounts();
 
-  // Sample chart data based on ticket status
-  const chartData = [
+  // Chart data based on ticket status
+  const pieChartData = [
     { name: "Open", value: statusCounts.open },
     { name: "In Progress", value: statusCounts["in-progress"] },
     { name: "Resolved", value: statusCounts.resolved },
     { name: "Closed", value: statusCounts.closed },
   ];
 
-  // Mocked time series data for ticket creation
-  const timeSeriesData = [
-    { name: "Week 1", tickets: 5 },
-    { name: "Week 2", tickets: 8 },
-    { name: "Week 3", tickets: 3 },
-    { name: "Week 4", tickets: 7 },
+  // Time series data for ticket creation
+  const lineChartData = [
+    { date: "Week 1", tickets: 5 },
+    { date: "Week 2", tickets: 8 },
+    { date: "Week 3", tickets: 3 },
+    { date: "Week 4", tickets: 7 },
   ];
 
   return (
@@ -168,11 +178,14 @@ const Dashboard = () => {
               </CardHeader>
               <CardContent>
                 <PieChart
-                  data={chartData}
-                  index="name"
-                  categories={["value"]}
-                  valueFormatter={(value) => `${value} tickets`}
-                  className="aspect-square"
+                  data={pieChartData}
+                  dataKey="value"
+                  nameKey="name"
+                  height={300}
+                  colors={["#ef4444", "#f59e0b", "#10b981", "#3b82f6"]}
+                  innerRadius={40}
+                  showTooltip={true}
+                  showLegend={true}
                 />
               </CardContent>
             </Card>
@@ -186,17 +199,19 @@ const Dashboard = () => {
               </CardHeader>
               <CardContent>
                 <LineChart
-                  data={timeSeriesData}
-                  index="name"
-                  categories={["tickets"]}
-                  valueFormatter={(value) => `${value} tickets`}
-                  className="aspect-square"
+                  data={lineChartData}
+                  xAxisKey="date"
+                  dataKeys={["tickets"]}
+                  height={300}
+                  showGrid={true}
+                  showTooltip={true}
+                  colors={["#2563eb"]}
                 />
               </CardContent>
             </Card>
           </div>
 
-          {displayTickets.length === 0 && (
+          {displayTickets.length === 0 && !isLoading && (
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
@@ -215,7 +230,11 @@ const Dashboard = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {displayTickets.length === 0 ? (
+              {isLoading ? (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">Loading your tickets...</p>
+                </div>
+              ) : displayTickets.length === 0 ? (
                 <div className="text-center py-8">
                   <p className="text-muted-foreground mb-4">You don't have any tickets yet</p>
                   <Button asChild>
@@ -241,7 +260,7 @@ const Dashboard = () => {
                             {new Date(ticket.createdAt).toLocaleDateString()}
                           </span>
                           <span className={`ticket-status-${ticket.status}`}>
-                            {ticket.status}
+                            {ticket.status.charAt(0).toUpperCase() + ticket.status.slice(1).replace("-", " ")}
                           </span>
                         </div>
                       </div>

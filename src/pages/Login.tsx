@@ -19,10 +19,10 @@ const Login = () => {
     e.preventDefault();
     setLoginError("");
     
-    const success = await login(email, password);
-    if (success) {
+    try {
+      await login(email, password);
       navigate("/dashboard");
-    } else {
+    } catch (error) {
       setLoginError("Invalid email or password");
     }
   };

@@ -25,9 +25,12 @@ const Register = () => {
     }
     
     setPasswordError("");
-    const success = await register(name, email, password);
-    if (success) {
+    try {
+      await register(name, email, password);
       navigate("/login", { state: { registered: true } });
+    } catch (error) {
+      // Handle registration error if needed
+      console.error("Registration failed:", error);
     }
   };
 
