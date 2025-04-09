@@ -8,7 +8,7 @@ export interface User {
   role: UserRole;
   createdAt: string;
   isVerified: boolean;
-  isActive?: boolean; // Added isActive property
+  isActive?: boolean; 
 }
 
 export type TicketStatus = 'open' | 'in-progress' | 'resolved' | 'closed';

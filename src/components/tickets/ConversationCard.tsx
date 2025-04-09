@@ -7,9 +7,11 @@ import {
   CardHeader, 
   CardTitle 
 } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MessageList from "./MessageList";
 import MessageInputBox from "./MessageInputBox";
-import { Message, User } from "@/types";
+import AttachmentsList from "./AttachmentsList";
+import { Message, User, Attachment } from "@/types";
 
 interface ConversationCardProps {
   messages: Message[];
@@ -17,8 +19,9 @@ interface ConversationCardProps {
   getUser: (userId: string) => User | undefined;
   formatDate: (date: string) => string;
   getInitials: (name: string) => string;
-  onSendMessage: (message: string) => void;
+  onSendMessage: (message: string, attachments?: File[]) => void;
   isSending: boolean;
+  attachments?: Attachment[];
 }
 
 const ConversationCard: React.FC<ConversationCardProps> = ({
@@ -28,7 +31,8 @@ const ConversationCard: React.FC<ConversationCardProps> = ({
   formatDate,
   getInitials,
   onSendMessage,
-  isSending
+  isSending,
+  attachments = []
 }) => {
   return (
     <Card className="h-full flex flex-col">
@@ -40,18 +44,37 @@ const ConversationCard: React.FC<ConversationCardProps> = ({
       </CardHeader>
 
       <CardContent className="flex-1 flex flex-col">
-        <MessageList
-          messages={messages}
-          currentUserId={currentUserId}
-          getUser={getUser}
-          formatDate={formatDate}
-          getInitials={getInitials}
-        />
-        
-        <MessageInputBox 
-          onSend={onSendMessage}
-          disabled={isSending}
-        />
+        <Tabs defaultValue="messages" className="flex-1 flex flex-col">
+          <TabsList className="mb-4">
+            <TabsTrigger value="messages">Messages</TabsTrigger>
+            <TabsTrigger value="attachments">
+              Attachments {attachments.length > 0 && `(${attachments.length})`}
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="messages" className="flex-1 flex flex-col">
+            <MessageList
+              messages={messages}
+              currentUserId={currentUserId}
+              getUser={getUser}
+              formatDate={formatDate}
+              getInitials={getInitials}
+            />
+            
+            <MessageInputBox 
+              onSend={onSendMessage}
+              disabled={isSending}
+            />
+          </TabsContent>
+          
+          <TabsContent value="attachments" className="space-y-4">
+            <AttachmentsList 
+              attachments={attachments}
+              messages={messages}
+              getUser={getUser}
+            />
+          </TabsContent>
+        </Tabs>
       </CardContent>
     </Card>
   );

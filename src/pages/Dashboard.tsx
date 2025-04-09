@@ -1,291 +1,265 @@
 
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Chart } from "@/components/ui/chart";
-import { Loader2, Clock, CheckCircle, AlertCircle, Plus } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle, CheckCircle2, Clock, FileQuestion } from "lucide-react";
+import { BarChart, LineChart, PieChart } from "@/components/ui/chart";
+import { mockTickets } from "@/data/mockData";
+import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { mockTickets } from "@/data/mockData"; // Using mock data for now
-
-// Chart data
-const ticketsByStatusData = {
-  labels: ["Open", "In Progress", "Resolved", "Closed"],
-  datasets: [
-    {
-      data: [12, 8, 15, 5],
-      backgroundColor: ["#f87171", "#60a5fa", "#4ade80", "#a3a3a3"],
-    },
-  ],
-};
-
-const ticketsOverTimeData = {
-  labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
-  datasets: [
-    {
-      label: "Tickets Created",
-      data: [18, 25, 20, 30, 24, 22],
-      borderColor: "#3b82f6",
-      backgroundColor: "rgba(59, 130, 246, 0.1)",
-      tension: 0.3,
-      fill: true,
-    },
-    {
-      label: "Tickets Resolved",
-      data: [15, 20, 18, 25, 22, 19],
-      borderColor: "#10b981",
-      backgroundColor: "rgba(16, 185, 129, 0.1)",
-      tension: 0.3,
-      fill: true,
-    },
-  ],
-};
+import { Ticket } from "@/types";
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState("overview");
+  const [tickets, setTickets] = useState<Ticket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [userTickets, setUserTickets] = useState([]); 
-  const [activeTab, setActiveTab] = useState("all");
 
   useEffect(() => {
-    // In a real implementation, fetch tickets from Supabase
-    // For now, simulate loading and use mock data
-    const loadTickets = async () => {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+    const fetchUserTickets = async () => {
+      if (!user) return;
       
-      // Filter tickets for current user
-      const filteredTickets = mockTickets.filter(ticket => ticket.userId === user?.id);
-      setUserTickets(filteredTickets);
-      setIsLoading(false);
+      try {
+        const { data, error } = await supabase
+          .from("tickets")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false });
+          
+        if (error) {
+          console.error("Error fetching tickets:", error);
+          return;
+        }
+        
+        setTickets(data || []);
+      } catch (error) {
+        console.error("Error in fetchUserTickets:", error);
+      } finally {
+        setIsLoading(false);
+      }
     };
-
-    if (user) {
-      loadTickets();
-    }
+    
+    fetchUserTickets();
   }, [user]);
 
-  const getTicketsByStatus = (status) => {
-    if (activeTab === "all") {
-      return userTickets;
-    }
-    return userTickets.filter(ticket => ticket.status.toLowerCase() === activeTab);
+  // Use mockTickets if no data from Supabase
+  const displayTickets = tickets.length > 0 ? tickets : mockTickets.filter(ticket => ticket.userId === user?.id);
+
+  const getStatusCounts = () => {
+    const counts = { open: 0, "in-progress": 0, resolved: 0, closed: 0 };
+    displayTickets.forEach(ticket => {
+      counts[ticket.status] = (counts[ticket.status] || 0) + 1;
+    });
+    return counts;
   };
 
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    }).format(date);
-  };
+  const statusCounts = getStatusCounts();
 
-  const getStatusBadge = (status) => {
-    switch (status.toLowerCase()) {
-      case "open":
-        return <Badge className="bg-red-500">Open</Badge>;
-      case "in progress":
-        return <Badge className="bg-blue-500">In Progress</Badge>;
-      case "resolved":
-        return <Badge className="bg-green-500">Resolved</Badge>;
-      case "closed":
-        return <Badge variant="outline">Closed</Badge>;
-      default:
-        return <Badge>{status}</Badge>;
-    }
-  };
+  // Sample chart data based on ticket status
+  const chartData = [
+    { name: "Open", value: statusCounts.open },
+    { name: "In Progress", value: statusCounts["in-progress"] },
+    { name: "Resolved", value: statusCounts.resolved },
+    { name: "Closed", value: statusCounts.closed },
+  ];
+
+  // Mocked time series data for ticket creation
+  const timeSeriesData = [
+    { name: "Week 1", tickets: 5 },
+    { name: "Week 2", tickets: 8 },
+    { name: "Week 3", tickets: 3 },
+    { name: "Week 4", tickets: 7 },
+  ];
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
+    <div className="space-y-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
         <div>
-          <h1 className="text-2xl font-bold">Dashboard</h1>
+          <h1 className="text-2xl font-bold">Welcome back, {user?.name || "User"}</h1>
           <p className="text-muted-foreground">
-            Welcome back, {user?.name || "User"}
+            Here's an overview of your support tickets
           </p>
         </div>
-        <Button asChild>
-          <Link to="/new-ticket">
-            <Plus className="mr-2 h-4 w-4" /> New Ticket
-          </Link>
+        <Button asChild className="mt-4 md:mt-0">
+          <Link to="/new-ticket">Create New Ticket</Link>
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Open Tickets</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center">
-              <Clock className="h-4 w-4 text-muted-foreground mr-2" />
-              <span className="text-2xl font-bold">
-                {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  userTickets.filter(t => t.status.toLowerCase() === "open").length
-                )}
-              </span>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Total Tickets</p>
+                <p className="text-2xl font-bold">{displayTickets.length}</p>
+              </div>
+              <FileQuestion className="h-8 w-8 text-muted-foreground" />
             </div>
           </CardContent>
         </Card>
-        
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">In Progress</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center">
-              <AlertCircle className="h-4 w-4 text-muted-foreground mr-2" />
-              <span className="text-2xl font-bold">
-                {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  userTickets.filter(t => t.status.toLowerCase() === "in progress").length
-                )}
-              </span>
+
+        <Card className="bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-900">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-green-600 dark:text-green-400">
+                  Resolved
+                </p>
+                <p className="text-2xl font-bold text-green-700 dark:text-green-300">
+                  {statusCounts.resolved}
+                </p>
+              </div>
+              <CheckCircle2 className="h-8 w-8 text-green-500" />
             </div>
           </CardContent>
         </Card>
-        
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Resolved</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center">
-              <CheckCircle className="h-4 w-4 text-muted-foreground mr-2" />
-              <span className="text-2xl font-bold">
-                {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  userTickets.filter(t => t.status.toLowerCase() === "resolved").length
-                )}
-              </span>
+
+        <Card className="bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-900">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-yellow-600 dark:text-yellow-400">
+                  In Progress
+                </p>
+                <p className="text-2xl font-bold text-yellow-700 dark:text-yellow-300">
+                  {statusCounts["in-progress"]}
+                </p>
+              </div>
+              <Clock className="h-8 w-8 text-yellow-500" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-900">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-red-600 dark:text-red-400">
+                  Open
+                </p>
+                <p className="text-2xl font-bold text-red-700 dark:text-red-300">
+                  {statusCounts.open}
+                </p>
+              </div>
+              <AlertCircle className="h-8 w-8 text-red-500" />
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Tickets by Status</CardTitle>
-            <CardDescription>Distribution of your support tickets</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Chart
-              type="doughnut"
-              data={ticketsByStatusData}
-              options={{
-                plugins: {
-                  legend: {
-                    position: "bottom",
-                  },
-                },
-                maintainAspectRatio: false,
-              }}
-              className="h-64"
-            />
-          </CardContent>
-        </Card>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="tickets">My Tickets</TabsTrigger>
+        </TabsList>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Tickets Over Time</CardTitle>
-            <CardDescription>Monthly ticket trends</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Chart
-              type="line"
-              data={ticketsOverTimeData}
-              options={{
-                scales: {
-                  y: {
-                    beginAtZero: true,
-                  },
-                },
-                plugins: {
-                  legend: {
-                    position: "bottom",
-                  },
-                },
-                maintainAspectRatio: false,
-              }}
-              className="h-64"
-            />
-          </CardContent>
-        </Card>
-      </div>
+        <TabsContent value="overview" className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Ticket Status Distribution</CardTitle>
+                <CardDescription>
+                  Distribution of your tickets by status
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <PieChart
+                  data={chartData}
+                  index="name"
+                  categories={["value"]}
+                  valueFormatter={(value) => `${value} tickets`}
+                  className="aspect-square"
+                />
+              </CardContent>
+            </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Your Tickets</CardTitle>
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList>
-              <TabsTrigger value="all">All Tickets</TabsTrigger>
-              <TabsTrigger value="open">Open</TabsTrigger>
-              <TabsTrigger value="in progress">In Progress</TabsTrigger>
-              <TabsTrigger value="resolved">Resolved</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex justify-center py-10">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : getTicketsByStatus(activeTab).length === 0 ? (
-            <div className="text-center py-10">
-              <p className="text-muted-foreground">No tickets found</p>
-              <Button variant="outline" className="mt-4" asChild>
-                <Link to="/new-ticket">
-                  <Plus className="mr-2 h-4 w-4" /> Create New Ticket
-                </Link>
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {getTicketsByStatus(activeTab).map((ticket) => (
-                <div
-                  key={ticket.id}
-                  className="flex items-center justify-between p-4 border rounded-lg"
-                >
-                  <div className="flex-1 min-w-0 mr-4">
-                    <Link
-                      to={`/tickets/${ticket.id}`}
-                      className="text-base font-medium hover:underline"
-                    >
-                      {ticket.title}
-                    </Link>
-                    <div className="flex flex-wrap items-center text-sm text-muted-foreground gap-2 mt-1">
-                      <span>#{ticket.id}</span>
-                      <span>•</span>
-                      <span>Created: {formatDate(ticket.createdAt)}</span>
-                      <span>•</span>
-                      <span>{ticket.category}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {getStatusBadge(ticket.status)}
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link to={`/tickets/${ticket.id}`}>View</Link>
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Activity</CardTitle>
+                <CardDescription>
+                  Your ticket activity over time
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <LineChart
+                  data={timeSeriesData}
+                  index="name"
+                  categories={["tickets"]}
+                  valueFormatter={(value) => `${value} tickets`}
+                  className="aspect-square"
+                />
+              </CardContent>
+            </Card>
+          </div>
+
+          {displayTickets.length === 0 && (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                You don't have any tickets yet. Create your first ticket to get started.
+              </AlertDescription>
+            </Alert>
           )}
-        </CardContent>
-        <CardFooter>
-          <Button variant="outline" className="w-full" asChild>
-            <Link to="/new-ticket">Create New Ticket</Link>
-          </Button>
-        </CardFooter>
-      </Card>
+        </TabsContent>
+
+        <TabsContent value="tickets">
+          <Card>
+            <CardHeader>
+              <CardTitle>My Tickets</CardTitle>
+              <CardDescription>
+                View and manage all your support tickets
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {displayTickets.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground mb-4">You don't have any tickets yet</p>
+                  <Button asChild>
+                    <Link to="/new-ticket">Create Your First Ticket</Link>
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {displayTickets.map((ticket) => (
+                    <div
+                      key={ticket.id}
+                      className="flex items-center justify-between border rounded-md p-4"
+                    >
+                      <div>
+                        <Link
+                          to={`/tickets/${ticket.id}`}
+                          className="font-medium hover:underline"
+                        >
+                          {ticket.title}
+                        </Link>
+                        <div className="flex mt-1 space-x-4 text-sm">
+                          <span className="text-muted-foreground">
+                            {new Date(ticket.createdAt).toLocaleDateString()}
+                          </span>
+                          <span className={`ticket-status-${ticket.status}`}>
+                            {ticket.status}
+                          </span>
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        asChild
+                      >
+                        <Link to={`/tickets/${ticket.id}`}>View</Link>
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
