@@ -11,7 +11,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   register: (name: string, email: string, password: string) => Promise<boolean>;
-  logout: () => void;
+  logout: () => Promise<void>; // Changed return type to Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -181,21 +181,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Logout functionality
-  const logout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error("Error signing out:", error);
+  // Logout functionality - Fixed the return type to Promise<void>
+  const logout = async (): Promise<void> => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error("Error signing out:", error);
+        toast({
+          title: "Error signing out",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        setUser(null);
+        toast({
+          title: "Logged out",
+          description: "You have been successfully logged out",
+        });
+      }
+    } catch (error: any) {
+      console.error("Error during logout:", error);
       toast({
         title: "Error signing out",
-        description: error.message,
+        description: error.message || "An unexpected error occurred",
         variant: "destructive",
-      });
-    } else {
-      setUser(null);
-      toast({
-        title: "Logged out",
-        description: "You have been successfully logged out",
       });
     }
   };

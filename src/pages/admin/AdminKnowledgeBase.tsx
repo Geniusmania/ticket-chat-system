@@ -18,7 +18,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Search, Plus, Edit, Trash2 } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 import { mockUsers } from "@/data/mockData";
 
 // Mock knowledge base articles
@@ -73,7 +84,10 @@ const mockKnowledgeBaseArticles = [
 const AdminKnowledgeBase = () => {
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [selectedArticle, setSelectedArticle] = useState(null);
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   // Filter knowledge base articles
   const filteredArticles = mockKnowledgeBaseArticles.filter((article) => {
@@ -98,6 +112,43 @@ const AdminKnowledgeBase = () => {
   const getAuthorName = (authorId: string) => {
     const author = mockUsers.find((user) => user.id === authorId);
     return author ? author.name : "Unknown Author";
+  };
+
+  const handleEditArticle = (articleId: string) => {
+    navigate(`/admin/knowledge-base/${articleId}`);
+  };
+
+  const handleDeleteArticle = async () => {
+    if (!selectedArticle) return;
+    
+    try {
+      // In a real app, delete from Supabase
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      toast({
+        title: "Article deleted",
+        description: `Article "${selectedArticle.title}" has been deleted successfully.`,
+      });
+      
+      // Update UI by filtering out the deleted article
+      // In a real app, you would refetch from the database
+    } catch (error) {
+      console.error("Error deleting article:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete article",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleteDialogOpen(false);
+      setSelectedArticle(null);
+    }
+  };
+
+  const openDeleteDialog = (article) => {
+    setSelectedArticle(article);
+    setDeleteDialogOpen(true);
   };
 
   return (
@@ -136,7 +187,7 @@ const AdminKnowledgeBase = () => {
             </SelectContent>
           </Select>
 
-          <Button className="whitespace-nowrap">
+          <Button className="whitespace-nowrap" onClick={() => navigate("/admin/knowledge-base/new")}>
             <Plus className="h-4 w-4 mr-2" /> New Article
           </Button>
         </div>
@@ -175,10 +226,15 @@ const AdminKnowledgeBase = () => {
                   </div>
                 </div>
                 <div className="flex mt-3 md:mt-0 space-x-2">
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" onClick={() => handleEditArticle(article.id)}>
                     <Edit className="h-4 w-4 mr-1" /> Edit
                   </Button>
-                  <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => openDeleteDialog(article)}
+                  >
                     <Trash2 className="h-4 w-4 mr-1" /> Delete
                   </Button>
                 </div>
@@ -196,6 +252,26 @@ const AdminKnowledgeBase = () => {
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Article</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{selectedArticle?.title}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteArticle}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

@@ -1,64 +1,189 @@
 
-import React, { useState } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import React, { useState, useEffect } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
+  TableCaption,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
-import {
-  CheckCircle,
-  MoreVertical,
-  Search,
-  Shield,
-  User,
-  UserX,
-} from "lucide-react";
-import { mockUsers } from "@/data/mockData";
+import { useToast } from "@/components/ui/use-toast";
+import { Search, MoreVertical, UserCheck, UserMinus, ShieldCheck, Shield } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+
+interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  created_at: string;
+  is_verified: boolean;
+}
 
 const AdminUsers = () => {
+  const [users, setUsers] = useState<UserProfile[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogAction, setDialogAction] = useState("");
+  const { toast } = useToast();
+
+  // Fetch users from Supabase
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        throw error;
+      }
+
+      setUsers(data || []);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch users",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Filter users based on search query
-  const filteredUsers = mockUsers.filter(
-    (user) =>
-      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredUsers = users.filter((user) => {
+    const searchLower = searchQuery.toLowerCase();
+    return (
+      user.name.toLowerCase().includes(searchLower) ||
+      user.email.toLowerCase().includes(searchLower) ||
+      user.role.toLowerCase().includes(searchLower)
+    );
+  });
+
+  const handleRoleChange = async (userId: string, newRole: string) => {
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ role: newRole })
+        .eq("id", userId);
+
+      if (error) throw error;
+
+      // Update local state
+      setUsers(
+        users.map((user) =>
+          user.id === userId ? { ...user, role: newRole } : user
+        )
+      );
+
+      toast({
+        title: "Role updated",
+        description: `User role has been updated to ${newRole}`,
+      });
+    } catch (error: any) {
+      console.error("Error updating role:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update user role",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleVerificationChange = async (userId: string, isVerified: boolean) => {
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ is_verified: isVerified })
+        .eq("id", userId);
+
+      if (error) throw error;
+
+      // Update local state
+      setUsers(
+        users.map((user) =>
+          user.id === userId ? { ...user, is_verified: isVerified } : user
+        )
+      );
+
+      toast({
+        title: isVerified ? "User verified" : "User unverified",
+        description: `User has been ${isVerified ? "verified" : "unverified"}`,
+      });
+    } catch (error: any) {
+      console.error("Error updating verification status:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update verification status",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleUserAction = (user: UserProfile, action: string) => {
+    setSelectedUser(user);
+    setDialogAction(action);
+    setDialogOpen(true);
+  };
+
+  const confirmUserAction = async () => {
+    if (!selectedUser) return;
+
+    try {
+      switch (dialogAction) {
+        case "makeAdmin":
+          await handleRoleChange(selectedUser.id, "admin");
+          break;
+        case "removeAdmin":
+          await handleRoleChange(selectedUser.id, "user");
+          break;
+        case "verify":
+          await handleVerificationChange(selectedUser.id, true);
+          break;
+        case "unverify":
+          await handleVerificationChange(selectedUser.id, false);
+          break;
+        default:
+          break;
+      }
+    } finally {
+      setDialogOpen(false);
+    }
+  };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat("en-US", {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
       month: "short",
       day: "numeric",
-      year: "numeric",
-    }).format(date);
+    });
   };
 
   return (
@@ -66,142 +191,173 @@ const AdminUsers = () => {
       <div className="mb-6">
         <h1 className="text-2xl font-bold">User Management</h1>
         <p className="text-muted-foreground">
-          View and manage system users and their permissions
+          Manage user accounts and permissions
         </p>
       </div>
 
-      <div className="flex items-center gap-4 mb-6">
-        <div className="relative flex-1">
+      <div className="mb-6">
+        <div className="relative w-full md:w-96">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search users by name or email..."
-            className="pl-10"
+            placeholder="Search users..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
           />
         </div>
-        <Button>
-          <User className="h-4 w-4 mr-2" /> Add User
-        </Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Users</CardTitle>
-          <CardDescription>{filteredUsers.length} users found</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Joined</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="w-[80px]">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredUsers.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell>
-                      <div className="flex items-center">
-                        <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center mr-2 text-xs font-medium">
-                          {user.name.charAt(0)}
-                        </div>
-                        <span className="font-medium">{user.name}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>
-                      {user.role === "admin" ? (
-                        <Badge className="bg-primary">
-                          <Shield className="w-3 h-3 mr-1" />
-                          Admin
-                        </Badge>
+      <Table>
+        <TableCaption>
+          {isLoading
+            ? "Loading users..."
+            : `Total ${filteredUsers.length} users`}
+        </TableCaption>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Name</TableHead>
+            <TableHead>Email</TableHead>
+            <TableHead>Role</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Joined</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {isLoading ? (
+            <TableRow>
+              <TableCell colSpan={6} className="text-center py-10">
+                Loading users...
+              </TableCell>
+            </TableRow>
+          ) : filteredUsers.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={6} className="text-center py-10">
+                No users found
+              </TableCell>
+            </TableRow>
+          ) : (
+            filteredUsers.map((user) => (
+              <TableRow key={user.id}>
+                <TableCell className="font-medium">{user.name}</TableCell>
+                <TableCell>{user.email}</TableCell>
+                <TableCell>
+                  <Badge
+                    variant={user.role === "admin" ? "default" : "outline"}
+                    className={
+                      user.role === "admin"
+                        ? "bg-blue-500 hover:bg-blue-600"
+                        : ""
+                    }
+                  >
+                    {user.role}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <Badge
+                    variant={user.is_verified ? "default" : "outline"}
+                    className={
+                      user.is_verified
+                        ? "bg-green-500 hover:bg-green-600"
+                        : ""
+                    }
+                  >
+                    {user.is_verified ? "Verified" : "Unverified"}
+                  </Badge>
+                </TableCell>
+                <TableCell>{formatDate(user.created_at)}</TableCell>
+                <TableCell className="text-right">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <MoreVertical className="h-4 w-4" />
+                        <span className="sr-only">Actions</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {user.role !== "admin" ? (
+                        <DropdownMenuItem
+                          onClick={() => handleUserAction(user, "makeAdmin")}
+                        >
+                          <ShieldCheck className="mr-2 h-4 w-4" /> Make Admin
+                        </DropdownMenuItem>
                       ) : (
-                        <Badge variant="secondary">User</Badge>
+                        <DropdownMenuItem
+                          onClick={() => handleUserAction(user, "removeAdmin")}
+                        >
+                          <Shield className="mr-2 h-4 w-4" /> Remove Admin Role
+                        </DropdownMenuItem>
                       )}
-                    </TableCell>
-                    <TableCell>{formatDate(user.createdAt)}</TableCell>
-                    <TableCell>
-                      {user.isActive ? (
-                        <div className="flex items-center text-xs">
-                          <span className="flex h-2 w-2 rounded-full bg-green-500 mr-2"></span>
-                          Active
-                        </div>
+                      {!user.is_verified ? (
+                        <DropdownMenuItem
+                          onClick={() => handleUserAction(user, "verify")}
+                        >
+                          <UserCheck className="mr-2 h-4 w-4" /> Verify User
+                        </DropdownMenuItem>
                       ) : (
-                        <div className="flex items-center text-xs">
-                          <span className="flex h-2 w-2 rounded-full bg-muted mr-2"></span>
-                          Inactive
-                        </div>
+                        <DropdownMenuItem
+                          onClick={() => handleUserAction(user, "unverify")}
+                        >
+                          <UserMinus className="mr-2 h-4 w-4" /> Unverify User
+                        </DropdownMenuItem>
                       )}
-                    </TableCell>
-                    <TableCell>
-                      <TooltipProvider>
-                        <DropdownMenu>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  className="h-8 w-8 p-0"
-                                >
-                                  <MoreVertical className="h-4 w-4" />
-                                  <span className="sr-only">Open menu</span>
-                                </Button>
-                              </DropdownMenuTrigger>
-                            </TooltipTrigger>
-                            <TooltipContent>Actions</TooltipContent>
-                          </Tooltip>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem>
-                              <User className="mr-2 h-4 w-4" />
-                              View Profile
-                            </DropdownMenuItem>
-                            {user.role !== "admin" && (
-                              <DropdownMenuItem>
-                                <Shield className="mr-2 h-4 w-4" />
-                                Make Admin
-                              </DropdownMenuItem>
-                            )}
-                            {user.role === "admin" && (
-                              <DropdownMenuItem>
-                                <User className="mr-2 h-4 w-4" />
-                                Remove Admin
-                              </DropdownMenuItem>
-                            )}
-                            {user.isActive ? (
-                              <DropdownMenuItem>
-                                <UserX className="mr-2 h-4 w-4" />
-                                Disable Account
-                              </DropdownMenuItem>
-                            ) : (
-                              <DropdownMenuItem>
-                                <CheckCircle className="mr-2 h-4 w-4" />
-                                Activate Account
-                              </DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TooltipProvider>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            {filteredUsers.length === 0 && (
-              <div className="text-center p-4">
-                <p className="text-muted-foreground">No users found</p>
-              </div>
-            )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {dialogAction === "makeAdmin"
+                ? "Make User Admin"
+                : dialogAction === "removeAdmin"
+                ? "Remove Admin Role"
+                : dialogAction === "verify"
+                ? "Verify User"
+                : "Unverify User"}
+            </DialogTitle>
+            <DialogDescription>
+              {dialogAction === "makeAdmin"
+                ? "This will grant admin privileges to this user."
+                : dialogAction === "removeAdmin"
+                ? "This will remove admin privileges from this user."
+                : dialogAction === "verify"
+                ? "This will mark the user as verified."
+                : "This will mark the user as unverified."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <p>
+              Are you sure you want to{" "}
+              {dialogAction === "makeAdmin"
+                ? "make"
+                : dialogAction === "removeAdmin"
+                ? "remove"
+                : dialogAction === "verify"
+                ? "verify"
+                : "unverify"}{" "}
+              {selectedUser?.name} ({selectedUser?.email})?
+            </p>
           </div>
-        </CardContent>
-      </Card>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant={dialogAction.includes("Admin") ? "default" : "default"}
+              onClick={confirmUserAction}
+            >
+              Confirm
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
