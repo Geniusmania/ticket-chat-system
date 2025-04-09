@@ -28,12 +28,7 @@ const Register = () => {
     
     setPasswordError("");
     try {
-      const result = await register(name, email, password);
-      if (result.error) {
-        setPasswordError(result.error.message || "Registration failed");
-        return;
-      }
-      
+      await register(name, email, password);
       toast({
         title: "Account created",
         description: "You can now sign in with your credentials",

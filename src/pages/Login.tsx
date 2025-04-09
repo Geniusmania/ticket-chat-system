@@ -1,5 +1,4 @@
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -13,20 +12,29 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState("");
-  const { login, isLoading } = useAuth();
+  const { login, isLoading, user } = useAuth();
   const navigate = useNavigate();
+  
+  // This effect watches for changes to the user state
+  useEffect(() => {
+    if (user) {
+      // Navigate based on user role whenever user data becomes available
+      if (user.role === "admin") {
+        navigate("/admin");
+      } else {
+        navigate("/dashboard");
+      }
+    }
+  }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError("");
     
     try {
-      const result = await login(email, password);
-      if (result.error) {
-        setLoginError("Invalid email or password");
-        return;
-      }
-      navigate("/dashboard");
+      // The navigation will happen via the useEffect when user state updates
+      await login(email, password);
+      // No navigation here - it will happen automatically in the useEffect
     } catch (error) {
       console.error("Login error:", error);
       setLoginError("Invalid email or password");
