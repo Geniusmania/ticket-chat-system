@@ -1,6 +1,6 @@
 
-import React from "react";
-import { FileText, Loader2 } from "lucide-react";
+import React, { useEffect, useRef } from "react";
+import { FileText } from "lucide-react";
 import { Message, User } from "@/types";
 import MessageItem from "./MessageItem";
 
@@ -21,6 +21,14 @@ const MessageList: React.FC<MessageListProps> = ({
   getInitials,
   typing
 }) => {
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]);
+
   if (messages.length === 0) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -36,7 +44,7 @@ const MessageList: React.FC<MessageListProps> = ({
   }
 
   return (
-    <div className="flex-1 overflow-y-auto mb-4 space-y-4">
+    <div className="flex-1 overflow-y-auto mb-4 space-y-4 px-1">
       {messages.map((message) => {
         const messageUser = getUser(message.userId);
         const isCurrentUser = message.userId === currentUserId;
@@ -63,6 +71,7 @@ const MessageList: React.FC<MessageListProps> = ({
           <p className="text-xs text-muted-foreground">{typing.name} is typing...</p>
         </div>
       )}
+      <div ref={messagesEndRef} />
     </div>
   );
 };

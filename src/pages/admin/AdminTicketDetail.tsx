@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Card,
@@ -42,6 +42,8 @@ const AdminTicketDetail = () => {
   const [isSavingStatus, setIsSavingStatus] = useState(false);
   const [isAssigning, setIsAssigning] = useState(false);
   const [admins, setAdmins] = useState<User[]>([]);
+  const channelRef = useRef<any>(null);
+  const ticketChannelRef = useRef<any>(null);
 
   // Fetch ticket data, user data, and related messages
   useEffect(() => {
@@ -202,6 +204,21 @@ const AdminTicketDetail = () => {
     
     fetchTicketData();
     
+    return () => {
+      // Clean up subscriptions when component unmounts
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+      }
+      if (ticketChannelRef.current) {
+        supabase.removeChannel(ticketChannelRef.current);
+      }
+    };
+  }, [ticketId, user]);
+  
+  // Set up real-time subscription for new messages after initial data is loaded
+  useEffect(() => {
+    if (!ticketId || messages === null) return;
+    
     // Set up real-time subscription for new messages
     const channel = supabase
       .channel('admin-ticket-messages')
@@ -213,7 +230,7 @@ const AdminTicketDetail = () => {
           table: 'messages',
           filter: `ticket_id=eq.${ticketId}`
         },
-        (payload) => {
+        async (payload) => {
           const newMessage = payload.new;
           
           // Format the new message
@@ -227,14 +244,81 @@ const AdminTicketDetail = () => {
           };
           
           setMessages(prev => [...prev, formattedMessage]);
+          
+          // Play notification sound if message is from someone else
+          if (user && newMessage.user_id !== user.id) {
+            const audio = new Audio('/notification.mp3');
+            audio.play().catch(e => console.log('Audio play failed:', e));
+          }
+          
+          // If the message has attachments, fetch them too
+          const { data: newAttachments } = await supabase
+            .from("attachments")
+            .select("*")
+            .eq("message_id", newMessage.id);
+            
+          if (newAttachments && newAttachments.length > 0) {
+            setAttachments(prev => [
+              ...prev,
+              ...newAttachments.map(att => ({
+                id: att.id,
+                filename: att.filename,
+                path: att.path,
+                ticketId: att.ticket_id,
+                messageId: att.message_id,
+                uploadedAt: att.uploaded_at,
+                uploadedById: att.uploaded_by_id,
+              }))
+            ]);
+          }
         }
       )
       .subscribe();
       
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [ticketId, user]);
+    // Store the channel reference
+    channelRef.current = channel;
+      
+    // Also listen for ticket updates
+    const ticketChannel = supabase
+      .channel('admin-ticket-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'tickets',
+          filter: `id=eq.${ticketId}`
+        },
+        (payload) => {
+          const updatedTicket = payload.new;
+          
+          // Update ticket state with the new values only if it's different than current state
+          setTicket(prev => {
+            if (!prev) return null;
+            if (
+              prev.status === updatedTicket.status &&
+              prev.priority === updatedTicket.priority &&
+              prev.assignedToId === updatedTicket.assigned_to_id
+            ) {
+              return prev;
+            }
+            
+            return {
+              ...prev,
+              status: updatedTicket.status,
+              priority: updatedTicket.priority,
+              updatedAt: updatedTicket.updated_at,
+              assignedToId: updatedTicket.assigned_to_id,
+            };
+          });
+        }
+      )
+      .subscribe();
+      
+    // Store ticket channel reference
+    ticketChannelRef.current = ticketChannel;
+      
+  }, [ticketId, user, messages]);
 
   const handleStatusChange = async (status: string) => {
     if (!ticket) return;
@@ -252,10 +336,13 @@ const AdminTicketDetail = () => {
       if (error) throw error;
       
       // Update local state
-      setTicket({
-        ...ticket,
-        status: status as "open" | "in-progress" | "resolved" | "closed",
-        updatedAt: new Date().toISOString()
+      setTicket(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          status: status as "open" | "in-progress" | "resolved" | "closed",
+          updatedAt: new Date().toISOString()
+        };
       });
       
       toast({
@@ -300,10 +387,13 @@ const AdminTicketDetail = () => {
       if (error) throw error;
       
       // Update local state
-      setTicket({
-        ...ticket,
-        assignedToId: userId || null,
-        updatedAt: new Date().toISOString()
+      setTicket(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          assignedToId: userId || null,
+          updatedAt: new Date().toISOString()
+        };
       });
       
       toast({

@@ -37,65 +37,72 @@ const ConversationCard: React.FC<ConversationCardProps> = ({
 }) => {
   const [typing, setTyping] = useState<{userId: string, name: string} | null>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
+  const channelRef = useRef<any>(null);
+  
   useEffect(() => {
-    // Scroll to bottom on new messages
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [messages]);
+    // Only set up typing indicator channel if we have a current user and at least one message
+    // to determine the ticket ID
+    if (!currentUserId || messages.length === 0) return;
 
-  useEffect(() => {
-    // Set up typing indicator channel
-    if (!currentUserId) return;
+    const ticketId = messages[0]?.ticketId;
+    if (!ticketId) return;
     
-    const channel = supabase.channel(`typing-${messages[0]?.ticketId || 'general'}`)
-      .on('broadcast', { event: 'typing' }, (payload) => {
-        // If someone else is typing
-        if (payload.payload.userId !== currentUserId) {
-          setTyping({
-            userId: payload.payload.userId,
-            name: payload.payload.name
-          });
-          
-          // Clear typing indicator after 3 seconds
-          if (typingTimeoutRef.current) {
-            clearTimeout(typingTimeoutRef.current);
-          }
-          
-          typingTimeoutRef.current = setTimeout(() => {
-            setTyping(null);
-          }, 3000);
+    const channel = supabase.channel(`typing-${ticketId}`);
+    
+    channel.on('broadcast', { event: 'typing' }, (payload) => {
+      // If someone else is typing
+      if (payload.payload.userId !== currentUserId) {
+        setTyping({
+          userId: payload.payload.userId,
+          name: payload.payload.name
+        });
+        
+        // Clear typing indicator after 3 seconds
+        if (typingTimeoutRef.current) {
+          clearTimeout(typingTimeoutRef.current);
         }
-      })
-      .subscribe();
+        
+        typingTimeoutRef.current = setTimeout(() => {
+          setTyping(null);
+        }, 3000);
+      }
+    })
+    .subscribe();
+    
+    // Store the channel reference
+    channelRef.current = channel;
       
     return () => {
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
       }
-      supabase.removeChannel(channel);
+      
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+      }
     };
   }, [currentUserId, messages]);
 
   const handleTyping = () => {
     // Don't send typing notifications if we don't have a current user or ticket
-    if (!currentUserId || !messages[0]?.ticketId) return;
+    if (!currentUserId || messages.length === 0) return;
+    
+    const ticketId = messages[0]?.ticketId;
+    if (!ticketId) return;
     
     const user = getUser(currentUserId);
     if (!user) return;
     
-    const channel = supabase.channel(`typing-${messages[0].ticketId}`);
-    
-    channel.send({
-      type: 'broadcast',
-      event: 'typing',
-      payload: {
-        userId: currentUserId,
-        name: user.name
-      }
-    });
+    if (channelRef.current) {
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'typing',
+        payload: {
+          userId: currentUserId,
+          name: user.name
+        }
+      });
+    }
   };
 
   return (
@@ -126,8 +133,6 @@ const ConversationCard: React.FC<ConversationCardProps> = ({
               typing={typing}
             />
             
-            <div ref={messagesEndRef} />
-            
             <MessageInputBox 
               onSend={onSendMessage}
               disabled={isSending}
@@ -135,7 +140,7 @@ const ConversationCard: React.FC<ConversationCardProps> = ({
             />
           </TabsContent>
           
-          <TabsContent value="attachments" className="space-y-4">
+          <TabsContent value="attachments">
             <AttachmentsList 
               attachments={attachments}
               messages={messages}

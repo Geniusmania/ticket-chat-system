@@ -1,3 +1,1 @@
-
-// This is a binary file, so we'll need to create it on the client side
-// I'll use a placeholder here - the actual file will need to be added manually
+// This is a binary file, we need to let the user know they should add an actual audio file

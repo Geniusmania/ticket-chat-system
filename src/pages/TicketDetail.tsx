@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
@@ -27,6 +27,8 @@ const TicketDetail = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [adminUsers, setAdminUsers] = useState<User[]>([]);
+  const channelRef = useRef<any>(null);
+  const ticketChannelRef = useRef<any>(null);
 
   useEffect(() => {
     const fetchTicketData = async () => {
@@ -164,6 +166,21 @@ const TicketDetail = () => {
 
     fetchTicketData();
     
+    return () => {
+      // Clean up subscriptions when component unmounts
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+      }
+      if (ticketChannelRef.current) {
+        supabase.removeChannel(ticketChannelRef.current);
+      }
+    };
+  }, [ticketId, user]);
+
+  // Set up real-time subscription for new messages after initial data is loaded
+  useEffect(() => {
+    if (!ticketId || messages === null) return;
+
     // Set up real-time subscription for new messages
     const channel = supabase
       .channel('ticket-messages')
@@ -220,6 +237,9 @@ const TicketDetail = () => {
       )
       .subscribe();
       
+    // Store the channel reference
+    channelRef.current = channel;
+      
     // Also listen for ticket updates (status changes, etc.)
     const ticketChannel = supabase
       .channel('ticket-updates')
@@ -256,11 +276,10 @@ const TicketDetail = () => {
       )
       .subscribe();
       
-    return () => {
-      supabase.removeChannel(channel);
-      supabase.removeChannel(ticketChannel);
-    };
-  }, [ticketId, user, ticket]);
+    // Store ticket channel reference
+    ticketChannelRef.current = ticketChannel;
+      
+  }, [ticketId, ticket, user, messages]);
 
   const getUser = (userId: string) => {
     if (user && userId === user.id) {
