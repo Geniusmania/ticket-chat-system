@@ -1,120 +1,136 @@
 
 import React from "react";
-import { File, FileText, Image, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { FileText, Download } from "lucide-react";
 import { Attachment, Message, User } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 
 interface AttachmentsListProps {
   attachments: Attachment[];
-  messages: Message[];
-  getUser: (userId: string) => User | undefined;
+  messages?: Message[];
+  getUser?: (userId: string) => User | undefined;
 }
 
 const AttachmentsList: React.FC<AttachmentsListProps> = ({
   attachments,
-  messages,
-  getUser,
+  messages = [],
+  getUser = () => undefined
 }) => {
-  if (attachments.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
-          <p className="mt-2 text-muted-foreground">No attachments yet</p>
-        </div>
-      </div>
-    );
-  }
-
-  const getAttachmentMessage = (attachment: Attachment) => {
-    if (attachment.messageId) {
-      return messages.find(msg => msg.id === attachment.messageId);
-    }
-    return null;
-  };
-
-  const getFileIcon = (filename: string) => {
-    const extension = filename.split('.').pop()?.toLowerCase();
-    
-    if (extension && ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp'].includes(extension)) {
-      return <Image className="h-8 w-8 text-blue-500" />;
-    }
-    
-    if (extension && ['pdf', 'doc', 'docx', 'txt', 'rtf', 'xls', 'xlsx', 'ppt', 'pptx'].includes(extension)) {
-      return <FileText className="h-8 w-8 text-orange-500" />;
-    }
-    
-    return <File className="h-8 w-8 text-gray-500" />;
-  };
-
   const handleDownload = async (attachment: Attachment) => {
     try {
       const { data, error } = await supabase.storage
-        .from('attachments')
+        .from("attachments")
         .download(attachment.path);
-        
-      if (error) {
-        throw error;
-      }
       
-      // Create a URL for the file
+      if (error) throw error;
+      
+      // Create a download link
       const url = URL.createObjectURL(data);
-      
-      // Create a temporary link element to trigger the download
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = attachment.filename || 'download';
-      link.click();
-      
-      // Clean up
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = attachment.filename;
+      document.body.appendChild(a);
+      a.click();
       URL.revokeObjectURL(url);
+      document.body.removeChild(a);
     } catch (error) {
       console.error('Error downloading file:', error);
       toast({
-        title: 'Download failed',
-        description: 'Could not download the file. Please try again.',
-        variant: 'destructive',
+        title: "Download failed",
+        description: "Unable to download the file",
+        variant: "destructive"
       });
     }
   };
 
-  return (
-    <div className="space-y-4">
-      {attachments.map((attachment) => {
-        const message = getAttachmentMessage(attachment);
-        const user = getUser(attachment.uploadedById);
+  if (!attachments.length) {
+    return (
+      <div className="text-center p-6">
+        <p className="text-muted-foreground">No attachments have been added to this ticket</p>
+      </div>
+    );
+  }
+
+  // Group attachments by message
+  const getAttachmentsWithContext = () => {
+    // First, let's group attachments by messageId
+    const groupedByMessage = attachments.reduce((groups, attachment) => {
+      const key = attachment.messageId || 'standalone';
+      if (!groups[key]) {
+        groups[key] = [];
+      }
+      groups[key].push(attachment);
+      return groups;
+    }, {} as Record<string, Attachment[]>);
+
+    // Now let's format them for display
+    const result = Object.entries(groupedByMessage).map(([messageId, attachmentGroup]) => {
+      // Find the related message if it exists
+      const relatedMessage = messageId !== 'standalone' 
+        ? messages.find(m => m.id === messageId)
+        : null;
         
-        return (
-          <div 
-            key={attachment.id}
-            className="border rounded-md p-4 flex items-center justify-between"
-          >
-            <div className="flex items-center">
-              <div className="mr-4">
-                {getFileIcon(attachment.filename)}
-              </div>
-              <div>
-                <h4 className="font-medium">{attachment.filename}</h4>
-                <p className="text-sm text-muted-foreground">
-                  Uploaded by {user?.name || 'Unknown'} 
-                  {message && ` in a message on ${new Date(message.createdAt).toLocaleDateString()}`}
-                </p>
-              </div>
+      // Get user info if available
+      const user = relatedMessage && getUser
+        ? getUser(relatedMessage.userId)
+        : null;
+        
+      return {
+        messageId,
+        user,
+        message: relatedMessage,
+        attachments: attachmentGroup
+      };
+    });
+    
+    return result;
+  };
+
+  const attachmentsWithContext = getAttachmentsWithContext();
+
+  return (
+    <div className="space-y-6">
+      {attachmentsWithContext.map(({ messageId, user, message, attachments: groupAttachments }) => (
+        <div key={messageId} className="border rounded-lg p-4 bg-card">
+          {user && (
+            <div className="mb-3 text-sm font-medium">
+              Uploaded by {user.name} {message && `in message`}
             </div>
-            <Button 
-              size="sm" 
-              variant="outline"
-              onClick={() => handleDownload(attachment)}
-              className="ml-4"
-            >
-              <Download className="h-4 w-4 mr-1" />
-              Download
-            </Button>
+          )}
+          
+          {message && (
+            <div className="mb-4 text-sm text-muted-foreground border-l-4 border-muted pl-3 py-1">
+              "{message.content.length > 100 
+                ? `${message.content.substring(0, 100)}...` 
+                : message.content}"
+            </div>
+          )}
+          
+          <div className="space-y-3">
+            {groupAttachments.map(attachment => (
+              <div 
+                key={attachment.id} 
+                className="flex items-center justify-between p-3 bg-card border rounded-lg"
+              >
+                <div className="flex items-center overflow-hidden">
+                  <FileText className="h-5 w-5 mr-3 flex-shrink-0 text-muted-foreground" />
+                  <span className="truncate">{attachment.filename}</span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="ml-2 flex-shrink-0"
+                  onClick={() => handleDownload(attachment)}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download
+                </Button>
+              </div>
+            ))}
           </div>
-        );
-      })}
+        </div>
+      ))}
     </div>
   );
 };

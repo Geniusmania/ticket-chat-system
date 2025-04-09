@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
+import { toast } from "@/components/ui/use-toast";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -20,9 +21,14 @@ const Login = () => {
     setLoginError("");
     
     try {
-      await login(email, password);
+      const result = await login(email, password);
+      if (result.error) {
+        setLoginError("Invalid email or password");
+        return;
+      }
       navigate("/dashboard");
     } catch (error) {
+      console.error("Login error:", error);
       setLoginError("Invalid email or password");
     }
   };

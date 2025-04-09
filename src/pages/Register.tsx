@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { toast } from "@/components/ui/use-toast";
+import { Loader2 } from "lucide-react";
 
 const Register = () => {
   const [name, setName] = useState("");
@@ -26,11 +28,20 @@ const Register = () => {
     
     setPasswordError("");
     try {
-      await register(name, email, password);
+      const result = await register(name, email, password);
+      if (result.error) {
+        setPasswordError(result.error.message || "Registration failed");
+        return;
+      }
+      
+      toast({
+        title: "Account created",
+        description: "You can now sign in with your credentials",
+      });
       navigate("/login", { state: { registered: true } });
     } catch (error) {
-      // Handle registration error if needed
       console.error("Registration failed:", error);
+      setPasswordError("Registration failed. Please try again.");
     }
   };
 
@@ -97,7 +108,12 @@ const Register = () => {
             </CardContent>
             <CardFooter className="flex flex-col space-y-4">
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Creating Account..." : "Create Account"}
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creating Account...
+                  </>
+                ) : "Create Account"}
               </Button>
               <div className="text-center text-sm">
                 Already have an account?{" "}
